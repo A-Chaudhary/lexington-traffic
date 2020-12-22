@@ -5,17 +5,27 @@ YOLO_v4 on the Darknet framework is run to detect cars in the video feed.
 
 ## Object Detection Output for yolov4.weights
 
-<img src="/media_77/output/output_media_w1682618446_22319.gif" width="75%">
+<img src="/media_77/output/output_media_w1682618446_22319.gif" width="75%" />
 
-## Object Tracking with DeepSORT on Daytime & Nighttime Footage
+## Object Tracking with DeepSORT on Daytime and Nighttime Footage
 
-### DayTime
+### Daytime
 
-<img src="/yolov4-deepsort/outputs/media_77/gif/media_w975392455_2263.gif" width="75%">
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w975392455_2263.gif" width="75%" />
 
 ### Nighttime
 
-<img src="/yolov4-deepsort/outputs/media_77/gif/media_w1682618446_22319.gif" width="75%">
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w1682618446_22319.gif" width="75%" />
+
+## Custom Allowed Classes & Count Per Camera Segmentation
+
+### Daytime
+
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w975392455_2263_segmented.gif" width="75%" />
+
+### Nighttime
+
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w1682618446_22319_segmented.gif" width="75%" />
 
 ### TODO
 * [x] Extract Source of Lexington Traffic Cameras
