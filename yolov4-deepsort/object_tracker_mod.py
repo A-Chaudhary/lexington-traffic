@@ -29,14 +29,17 @@ flags.DEFINE_string('weights', './checkpoints/yolov4-416',
 flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
-flags.DEFINE_string('video', './data/video/test.mp4', 'path to input video or set to 0 for webcam')
-flags.DEFINE_string('output', None, 'path to output video')
+video_file_default = 'C:\\Users\chaud\Desktop\!Back_this_folder!\!Back_this_folder_up_old!\Coding and AI\python\Lexington Traffic Project\media_77\media_w975392455_2263.ts'
+flags.DEFINE_string('video', video_file_default , 'path to input video or set to 0 for webcam')
+output_file_default = '.\outputs\media_77\media_w975392455_2263_parsed.avi'
+flags.DEFINE_string('output', output_file_default , 'path to output video')
 flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
 flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
+flags.DEFINE_boolean('segmentation', True, 'Separates count by quadrant on screen')
 
 def main(_argv):
     # Definition of the parameters
@@ -176,7 +179,7 @@ def main(_argv):
         count = len(names)
         if FLAGS.count:
             cv2.putText(frame, "Objects being tracked: {}".format(count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
-            print("Objects being tracked: {}".format(count))
+            print("Objects being tracked: {}".format(count))       
         # delete detections that are not in allowed_classes
         bboxes = np.delete(bboxes, deleted_indx, axis=0)
         scores = np.delete(scores, deleted_indx, axis=0)
@@ -200,6 +203,12 @@ def main(_argv):
         tracker.predict()
         tracker.update(detections)
 
+        # Initialize quadrant counts
+        quadrant_1 = 0
+        quadrant_2 = 0
+        quadrant_3 = 0
+        quadrant_4 = 0
+
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
@@ -217,6 +226,25 @@ def main(_argv):
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+
+        # if enable segmentation flag then display and print quadrants' counts
+            if FLAGS.segmentation:
+                if bbox[0] <= 960:
+                    if bbox[1] <= 720:
+                        quadrant_2 +=1
+                    else:
+                        quadrant_3 +=1
+                else:    
+                    if bbox[1] <=720:
+                        quadrant_1 +=1
+                    else:
+                        quadrant_4 +=1    
+                
+        if FLAGS.segmentation:
+            cv2.putText(frame, "Quadrant 2: {}".format(quadrant_2), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+            cv2.putText(frame, "Quadrant 1: {}".format(quadrant_1), (965+20, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+            cv2.putText(frame, "Quadrant 3: {}".format(quadrant_3), (5, 755+20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+            cv2.putText(frame, "Quadrant 4: {}".format(quadrant_4), (965+20, 755+20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
