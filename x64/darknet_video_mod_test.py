@@ -62,6 +62,45 @@ def cvDrawBoxes(detections, img):
                             color, 2)
     return img
 
+def printDetections(detections):
+    for detection in detections:
+        x, y, w, h = detection[2][0],\
+            detection[2][1],\
+            detection[2][2],\
+            detection[2][3]
+        print('x:'+ str(x) + ' y:' + str(y) + ' w:' + str(w) + ' h:' + str(h) )
+
+
+# gaussian function
+def f(mu, sigma2, x):
+    ''' f takes in a mean and squared variance, and an input x
+       and returns the gaussian value.'''
+    coefficient = 1.0 / math.sqrt(2.0 * math.pi *sigma2)
+    exponential = math.exp(-0.5 * (x-mu) ** 2 / sigma2)
+    return coefficient * exponential
+
+
+# the update function
+def update(mean1, var1, mean2, var2):
+    ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters.'''
+    # Calculate the new parameters
+    new_mean = (var2*mean1 + var1*mean2)/(var2+var1)
+    new_var = 1/(1/var2 + 1/var1)
+    
+    return [new_mean, new_var]
+
+
+# the motion update/predict function
+def predict(mean1, var1, mean2, var2):
+    ''' This function takes in two means and two squared variance terms,
+        and returns updated gaussian parameters, after motion.'''
+    # Calculate the new parameters
+    new_mean = mean1 + mean2
+    new_var = var1 + var2
+    
+    return [new_mean, new_var]
+
 
 netMain = None
 metaMain = None
@@ -117,9 +156,9 @@ def YOLO():
     frame_width = int(cap.get(3)  * reduction_of_size_factor)                                   # Returns the width and height of capture video
     frame_height = int(cap.get(4) * reduction_of_size_factor)
     # Set out for video writer
-    out = cv2.VideoWriter(                                          # Set the Output path for video writer
-        "C:\\Users\chaud\Desktop\!Back_this_folder!\!Back_this_folder_up_old!\Coding and AI\python\Lexington Traffic Project\media_77\output\output_tiny.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30.0,
-        (frame_width, frame_height))
+    # out = cv2.VideoWriter(                                          # Set the Output path for video writer
+    #     "C:\\Users\chaud\Desktop\!Back_this_folder!\!Back_this_folder_up_old!\Coding and AI\python\Lexington Traffic Project\media_77\output\output_media_w1682618446_22319.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30.0,
+    #     (frame_width, frame_height))
 
     print("Starting the YOLO loop...")
 
@@ -140,15 +179,18 @@ def YOLO():
         darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())                # Copy that frame bytes to darknet_image
 
         detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.25)    # Detection occurs at this line and return detections, for customize we can change the threshold.                                                                                   
+        
+        printDetections(detections)
+        
         image = cvDrawBoxes(detections, frame_resized)               # Call the function cvDrawBoxes() for colored bounding box per class
         #image = frame_resized                                        #Doesn't draw on image
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         print(1/(time.time()-prev_time))
         cv2.imshow('Demo', image)                                    # Display Image window
         cv2.waitKey(3)
-        out.write(image)                                             # Write that frame into output video
+        # out.write(image)                                             # Write that frame into output video
     cap.release()                                                    # For releasing cap and out. 
-    out.release()
+    # out.release()
     print(":::Video Write Completed")
 
 if __name__ == "__main__":  

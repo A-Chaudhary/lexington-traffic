@@ -1,5 +1,5 @@
 # vim: expandtab:ts=4:sw=4
-
+from math import sqrt
 
 class TrackState:
     """
@@ -60,6 +60,14 @@ class Track:
     features : List[ndarray]
         A cache of features. On each measurement update, the associated feature
         vector is added to this list.
+    previous_position : 
+        Previous position of track
+    movement : Boolean
+        If track is moving with a certain error range output value   
+    previous_movement : Boolean
+        previous movement boolean
+    current_movement : Boolean
+        current movement boolean             
 
     """
 
@@ -80,6 +88,12 @@ class Track:
         self._n_init = n_init
         self._max_age = max_age
         self.class_name = class_name
+
+        self.previous_position = [0,0,0,0]
+        self.movement = False
+        self.previous_movement2 = False
+        self.previous_movement = False
+        self.current_movement = False
 
     def to_tlwh(self):
         """Get current position in bounding box format `(top left x, top left y,
@@ -139,6 +153,10 @@ class Track:
             The associated detection.
 
         """
+        self.previous_position = self.to_tlwh()
+        self.previous_movement2 = self.previous_movement
+        self.previous_movement = self.current_movement
+
         self.mean, self.covariance = kf.update(
             self.mean, self.covariance, detection.to_xyah())
         self.features.append(detection.feature)
@@ -148,6 +166,14 @@ class Track:
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
             self.state = TrackState.Confirmed
 
+        self.current_movement = True
+        current_position = self.to_tlwh()
+        error = 0.5
+        print("Previous: {}, Current: {}".format( (self.previous_position[0], self.previous_position[1]) , (current_position[0], current_position[1]) ) )
+        if sqrt(pow(current_position[0]-self.previous_position[0], 2) + pow(current_position[1]-self.previous_position[1], 2)) < error:
+            self.current_movement = False
+        self.movement = self.previous_movement2 and self.previous_movement and self.current_movement    
+
     def mark_missed(self):
         """Mark this track as missed (no association at the current time step).
         """
@@ -155,6 +181,9 @@ class Track:
             self.state = TrackState.Deleted
         elif self.time_since_update > self._max_age:
             self.state = TrackState.Deleted
+
+    def is_moving(self):
+        return self.movement
 
     def is_tentative(self):
         """Returns True if this track is tentative (unconfirmed).

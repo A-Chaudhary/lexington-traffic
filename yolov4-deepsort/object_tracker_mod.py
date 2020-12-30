@@ -30,18 +30,24 @@ flags.DEFINE_integer('size', 416, 'resize images to')
 flags.DEFINE_boolean('tiny', False, 'yolo or yolo-tiny')
 flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 video_file_default = 'C:\\Users\chaud\Desktop\!Back_this_folder!\!Back_this_folder_up_old!\Coding and AI\python\Lexington Traffic Project\media_77\media_w975392455_2263.ts'
+# video_file_default = 'C:\\Users\chaud\Desktop\!Back_this_folder!\!Back_this_folder_up_old!\Coding and AI\python\Lexington Traffic Project\media_77\media_w1682618446_22320.ts'
 flags.DEFINE_string('video', video_file_default , 'path to input video or set to 0 for webcam')
-output_file_default = '.\outputs\media_77\media_w975392455_2263_parsed.avi'
+output_file_default = '.\outputs\media_77\media_w975392455_2263_movement2.avi'
+# output_file_default = '.\outputs\media_77\media_w1682618446_22320_movement2.avi'
+# output_file_default = None
 flags.DEFINE_string('output', output_file_default , 'path to output video')
 flags.DEFINE_string('output_format', 'XVID', 'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
-flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
+flags.DEFINE_boolean('info', True, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 flags.DEFINE_boolean('segmentation', True, 'Separates count by quadrant on screen')
+flags.DEFINE_boolean('benefit', True, 'Calculates time spent sitting on screen without traffic')
 
 def main(_argv):
+    if FLAGS.benefit:
+        FLAGS.segmentation = True
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
@@ -94,6 +100,8 @@ def main(_argv):
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
     frame_num = 0
+    if FLAGS.benefit:
+            time_count = 0
     # while video is running
     while True:
         return_value, frame = vid.read()
@@ -203,11 +211,12 @@ def main(_argv):
         tracker.predict()
         tracker.update(detections)
 
-        # Initialize quadrant counts
-        quadrant_1 = 0
-        quadrant_2 = 0
-        quadrant_3 = 0
-        quadrant_4 = 0
+        # Initialize quadrant counts & movement list
+        if FLAGS.segmentation:
+            quadrant_1 = 0
+            quadrant_2 = 0
+            quadrant_3 = 0
+            quadrant_4 = 0
 
         # update tracks
         for track in tracker.tracks:
@@ -215,17 +224,22 @@ def main(_argv):
                 continue 
             bbox = track.to_tlbr()
             class_name = track.get_class()
+            moving = track.is_moving()
             
         # draw bbox on screen
-            color = colors[int(track.track_id) % len(colors)]
-            color = [i * 255 for i in color]
+            # color = colors[int(track.track_id) % len(colors)]
+            # color = [i * 255 for i in color]
+            if moving:
+                color = (0,255,0)
+            else:
+                color = (255,0,0)
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
             cv2.putText(frame, class_name + "-" + str(track.track_id),(int(bbox[0]), int(bbox[1]-10)),0, 0.75, (255,255,255),2)
 
         # if enable info flag then print details about each track
             if FLAGS.info:
-                print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+                print("Tracker ID: {}, Class: {},  BBox (x1,y1,x2, y2): {}, Moving (T or F): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])),moving))
 
         # if enable segmentation flag then display and print quadrants' counts
             if FLAGS.segmentation:
@@ -239,12 +253,28 @@ def main(_argv):
                         quadrant_1 +=1
                     else:
                         quadrant_4 +=1    
+
+        for track in tracker.tracks:
+            if not track.is_confirmed() or track.time_since_update > 1:
+                continue 
+            moving = track.is_moving()
+
+            if FLAGS.benefit:
+                if (quadrant_2 == 0 and quadrant_1 ==0 ) and (not moving):
+                    # print("Tracker ID {}, ADDED FRAME COUNT".format(str(track.track_id)))
+                    time_count +=1
                 
+        # draw quadrant sum on each camera feed
         if FLAGS.segmentation:
             cv2.putText(frame, "Quadrant 2: {}".format(quadrant_2), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             cv2.putText(frame, "Quadrant 1: {}".format(quadrant_1), (965+20, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             cv2.putText(frame, "Quadrant 3: {}".format(quadrant_3), (5, 755+20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             cv2.putText(frame, "Quadrant 4: {}".format(quadrant_4), (965+20, 755+20), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+
+        if FLAGS.benefit:
+            frame_count_converted = round( time_count / int(vid.get(cv2.CAP_PROP_FPS)) , 2)
+            cv2.putText(frame, " {}".format(frame_count_converted), (5, 90), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (255, 0, 0), 2)   
+            print("frame {}".format(frame_count_converted))     
 
         # calculate frames per second of running detections
         fps = 1.0 / (time.time() - start_time)
@@ -253,6 +283,8 @@ def main(_argv):
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
         if not FLAGS.dont_show:
+            if FLAGS.output is None:
+                result = cv2.resize(result, (960, 720))                    
             cv2.imshow("Output Video", result)
         
         # if output flag is set, save video file
