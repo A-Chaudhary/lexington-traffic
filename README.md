@@ -38,6 +38,15 @@ YOLO_v4 on the Darknet framework is run to detect cars in the video feed.
 
 <img src="/yolov4-deepsort/outputs/media_77/gif/media_w1682618446_22320_movement.gif" width="75%" />
 
+## Calculated Total Time Spent Wasted Sitting at Trafficless Stop Light
+
+### Daytime
+
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w975392455_2263_movement2.gif" width="75%" />
+
+### Nighttime
+
+<img src="/yolov4-deepsort/outputs/media_77/gif/media_w1682618446_22320_movement2.gif" width="75%" />
 
 ### TODO
 * [x] Extract Source of Lexington Traffic Cameras
@@ -49,7 +58,7 @@ YOLO_v4 on the Darknet framework is run to detect cars in the video feed.
 * [x] Convert yolov4.weights to Tensorflow  
 * [X] Apply DeepSORT for Object Tracking
 * [X] Determine Object Movement Boolean
-* [ ] Calculate Benefit from Reduced Car Idling 
+* [X] Calculate Benefit from Reduced Car Idling 
 * [ ] Extrapolate to City Wide Scale
 
 ### References
