@@ -1,5 +1,6 @@
 # vim: expandtab:ts=4:sw=4
-from math import sqrt
+from math import sqrt, fabs
+
 
 class TrackState:
     """
@@ -60,24 +61,19 @@ class Track:
     features : List[ndarray]
         A cache of features. On each measurement update, the associated feature
         vector is added to this list.
-    previous_position : 
-        Previous position of track
     movement : Boolean
         If track is moving with a certain error range output value   
-    previous_movement : Boolean
-        previous movement boolean
-    current_movement : Boolean
-        current movement boolean             
 
     """
 
-    def __init__(self, mean, covariance, track_id, n_init, max_age,
+    def __init__(self, mean, covariance, track_id, n_init, max_age, birth,
                  feature=None, class_name=None):
         self.mean = mean
         self.covariance = covariance
         self.track_id = track_id
         self.hits = 1
         self.age = 1
+        self.birth = birth
         self.time_since_update = 0
 
         self.state = TrackState.Tentative
@@ -89,11 +85,17 @@ class Track:
         self._max_age = max_age
         self.class_name = class_name
 
-        self.previous_position = [0,0,0,0]
-        self.movement = False
-        self.previous_movement2 = False
-        self.previous_movement = False
-        self.current_movement = False
+        self.movement = True
+        self.position = self.to_xy()
+        self.previousPositions = []
+        self.displacement = [0,0]
+        self.speed = 0
+        self.previousSpeeds = []
+
+        self.acceleration = 0
+        self.previousAccelerations = []
+
+        self.change = 0
 
     def to_tlwh(self):
         """Get current position in bounding box format `(top left x, top left y,
@@ -123,9 +125,78 @@ class Track:
         ret = self.to_tlwh()
         ret[2:] = ret[:2] + ret[2:]
         return ret
+
+    def to_xy(self):
+        """Get current position `(center x, center y)`"""
+        return self.mean[:2]
     
     def get_class(self):
         return self.class_name
+
+    def get_track_id(self):
+        return self.track_id
+
+    def get_birth(self):
+        return self.birth
+
+    def get_age(self):
+        return self.age
+
+    def get_internal_time(self):
+        return self.birth + self.age
+
+    def get_acceleration(self):
+        return self.acceleration
+
+    def get_speed(self):
+        return self.speed
+
+    def get_previous_accelerations(self):
+        return self.previousAccelerations
+
+    def get_previous_speeds(self):
+        return self.previousSpeeds
+
+    def get_previous_positions(self):
+        return self.previousPositions
+
+    def get_change(self):
+        return self.change
+
+    def update_position(self):
+        self.previousPositions.append(self.position)
+        self.position = self.to_xy()
+
+    def calculate_displacement(self):
+        """Calculate Displacement `(x,y)` as a percentage of bounding box dimensions."""
+        ret = self.to_tlwh()[2:]
+        self.displacement[0] = (self.position[0]-self.previousPositions[-1][0]) / ret[0] * 100
+        self.displacement[1] = (self.position[1]-self.previousPositions[-1][1]) / ret[1] * 100
+
+    def calculate_change(self):
+        self.change = sqrt(self.displacement[0] **2 + self.displacement[1] **2)
+
+    def calculate_speed(self):
+        self.previousSpeeds.append([self.birth + self.age ,self.speed])
+        self.speed = sqrt(self.displacement[0]**2 + self.displacement[1]**2) / self.time_since_update
+
+    def calculate_acceleration(self):
+        self.previousAccelerations.append([self.birth + self.age,self.acceleration])
+        self.acceleration = ((self.speed - self.previousSpeeds[-1][1])/self.time_since_update + self.previousAccelerations[-1][1] )/ 2
+
+    def update_kinematics(self):
+        self.update_position() 
+        self.calculate_displacement()
+        self.calculate_speed()
+        self.calculate_acceleration()
+
+        self.calculate_change()
+
+        self.movement = self.change > 1.7 or self.speed > 2 or self.acceleration > 1.2
+        # self.movement = self.acceleration - self.previousAccelerations[-1][1]  > 0
+
+
+
 
     def predict(self, kf):
         """Propagate the state distribution to the current time step using a
@@ -153,26 +224,19 @@ class Track:
             The associated detection.
 
         """
-        self.previous_position = self.to_tlwh()
-        self.previous_movement2 = self.previous_movement
-        self.previous_movement = self.current_movement
 
         self.mean, self.covariance = kf.update(
             self.mean, self.covariance, detection.to_xyah())
         self.features.append(detection.feature)
+
+        self.update_kinematics()
 
         self.hits += 1
         self.time_since_update = 0
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
             self.state = TrackState.Confirmed
 
-        self.current_movement = True
-        current_position = self.to_tlwh()
-        error = 0.5
-        print("Previous: {}, Current: {}".format( (self.previous_position[0], self.previous_position[1]) , (current_position[0], current_position[1]) ) )
-        if sqrt(pow(current_position[0]-self.previous_position[0], 2) + pow(current_position[1]-self.previous_position[1], 2)) < error:
-            self.current_movement = False
-        self.movement = self.previous_movement2 and self.previous_movement and self.current_movement    
+        
 
     def mark_missed(self):
         """Mark this track as missed (no association at the current time step).
